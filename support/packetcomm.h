@@ -87,6 +87,7 @@ namespace Cosmos {
                 CommandEpsSwitchStatus = 169,
                 CommandExecLoadCommand = 170,
                 CommandExecAddCommand = 171,
+                CommandRadioCommunicate = 180,
                 };
 
             map<TypeId, string> TypeString = {
@@ -140,6 +141,7 @@ namespace Cosmos {
                 {TypeId::CommandEpsSwitchStatus, "EpsSwitchStatus"},
                 {TypeId::CommandExecLoadCommand, "ExecLoadCommand"},
                 {TypeId::CommandExecAddCommand, "ExecAddCommand"},
+                {TypeId::CommandRadioCommunicate, "RadioCommunicate"},
             };
 
             map<string, TypeId> StringType = {
@@ -195,6 +197,8 @@ namespace Cosmos {
                 {"AdcsSetRunMode", TypeId::CommandAdcsSetRunMode},
                 {"ExecLoadCommand", TypeId::CommandExecLoadCommand},
                 {"ExecAddCommand", TypeId::CommandExecAddCommand},
+
+                {"RadioCommunicate", TypeId::CommandRadioCommunicate},
             };
 
             struct __attribute__ ((packed)) CommunicateHeader
