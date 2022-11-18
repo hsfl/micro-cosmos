@@ -1,14 +1,13 @@
 #ifndef PACKETCOMM_H
 #define PACKETCOMM_H
 
-#include "support/configCosmos.h"
+#include "support/configCosmosKernel.h"
 #include "math/crclib.h"
 #include "support/sliplib.h"
 #include "device/general/ax25class.h"
 
 namespace Cosmos {
     namespace Support {
-        using std::map;
         class PacketComm
         {
         public:
@@ -38,6 +37,7 @@ namespace Cosmos {
             enum class TypeId : uint8_t {
                 None = 0,
                 DataBeacon = 10,
+                DataNop = 15,
                 DataPong = 41,
                 DataEpsResponse = 43,
                 DataRadioResponse = 44,
@@ -92,8 +92,9 @@ namespace Cosmos {
                 CommandRadioCommunicate = 180,
                 };
 
-            map<TypeId, string> TypeString = {
+            std::map<TypeId, string> TypeString = {
                 {TypeId::DataBeacon, "Beacon"},
+                {TypeId::DataNop, "Nop"},
                 {TypeId::DataPong, "Pong"},
                 {TypeId::DataEpsResponse, "EpsResponse"},
                 {TypeId::DataRadioResponse, "RadioResponse"},
@@ -148,8 +149,9 @@ namespace Cosmos {
                 {TypeId::CommandRadioCommunicate, "RadioCommunicate"},
             };
 
-            map<string, TypeId> StringType = {
+            std::map<string, TypeId> StringType = {
                 {"Beacon", TypeId::DataBeacon},
+                {"Nop", TypeId::DataNop},
                 {"Pong", TypeId::DataPong},
                 {"EpsResponse", TypeId::DataEpsResponse},
                 {"RadioResponse", TypeId::DataRadioResponse},
