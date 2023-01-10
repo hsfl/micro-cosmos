@@ -121,9 +121,7 @@ ENDIF(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
 
 # Establish includes, both standard and device specific
 # Standard inludes
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/device)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/math)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/support)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/device/general)
 add_subdirectory(${PROJECT_SOURCE_DIR}/math)
