@@ -4,40 +4,46 @@
 #include "support/configCosmosKernel.h"
 #include "math/crclib.h"
 #include "support/sliplib.h"
-#include "device/general/ax25class.h"
+#include "support/ax25class.h"
+// #include "support/timelib.h"
 
-namespace Cosmos {
-    namespace Support {
+namespace Cosmos
+{
+    namespace Support
+    {
         class PacketComm
         {
         public:
-            struct __attribute__ ((packed)) CCSDS_Header {
-                uint8_t tf_version:2;
-                uint16_t spacecraft_id:10;
-                uint8_t virtual_channel_id:3;
-                uint8_t ocf_flag:1;
+            struct __attribute__((packed)) CCSDS_Header
+            {
+                uint8_t tf_version : 2;
+                uint16_t spacecraft_id : 10;
+                uint8_t virtual_channel_id : 3;
+                uint8_t ocf_flag : 1;
                 uint8_t master_frame_cnt;
                 uint8_t virtual_frame_cnt; // Start frame, will increment
                 uint16_t tf_data_field_status;
             };
 
-            //PacketComm();
+            PacketComm(uint16_t size = 4);
             void CalcCRC();
             bool CheckCRC();
-            int32_t Unwrap(bool checkcrc=true);
-            int32_t RawUnPacketize(bool invert=false, bool checkcrc=true);
-            bool ASMUnPacketize();
-            bool SLIPUnPacketize();
+            int32_t Unwrap(bool checkcrc = true);
+            int32_t RawUnPacketize(bool invert = false, bool checkcrc = true);
+            bool ASMUnPacketize(bool checkcrc = true);
+            bool SLIPUnPacketize(bool checkcrc = true);
+            bool HDLCUnPacketize(bool checkcrc = true);
             bool Wrap();
             bool RawPacketize();
             bool ASMPacketize();
-            bool AX25Packetize(string dest_call="", string sour_call="", uint8_t dest_stat=0x60, uint8_t sour_stat=0x61, uint8_t cont=0x03, uint8_t prot=0xf0);
+            bool AX25Packetize(string dest_call = "", string sour_call = "", uint8_t flagcount = 2, uint8_t dest_stat = 0x60, uint8_t sour_stat = 0x61, uint8_t cont = 0x03, uint8_t prot = 0xf0);
+            bool HDLCPacketize(uint8_t flagcount);
             bool SLIPPacketize();
 
-            enum class TypeId : uint8_t {
-                None = 0,
+            enum class TypeId : uint8_t
+            {
+                Blank = 0,
                 DataBeacon = 10,
-                DataNop = 15,
                 DataPong = 41,
                 DataEpsResponse = 43,
                 DataRadioResponse = 44,
@@ -56,6 +62,7 @@ namespace Cosmos {
                 DataFileMetaData = 84,
                 DataFileChunkData = 85,
                 DataFileReqComplete = 86,
+                DataNop = 127,
                 CommandReset = 128,
                 CommandReboot = 129,
                 CommandSendBeacon = 130,
@@ -73,10 +80,13 @@ namespace Cosmos {
                 CommandSetTime = 142,
                 CommandGetTimeHuman = 143,
                 CommandGetTimeBinary = 144,
+                CommandSetOpsMode = 145,
+                CommandEnableChannel = 146,
                 CommandAdcsCommunicate = 150,
                 CommandAdcsState = 151,
                 CommandAdcsSetRunMode = 152,
-				CommandAdcsGetAdcsState = 155,
+                CommandAdcsGetAdcsState = 155,
+                CommandAdcsOrbitParameters = 156,
                 CommandEpsCommunicate = 160,
                 CommandEpsSwitchName = 161,
                 CommandEpsSwitchNumber = 162,
@@ -90,7 +100,8 @@ namespace Cosmos {
                 CommandExecLoadCommand = 170,
                 CommandExecAddCommand = 171,
                 CommandRadioCommunicate = 180,
-                };
+                CommandNop = 255,
+            };
 
             std::map<TypeId, string> TypeString = {
                 {TypeId::DataBeacon, "Beacon"},
@@ -130,10 +141,13 @@ namespace Cosmos {
                 {TypeId::CommandSetTime, "SetTime"},
                 {TypeId::CommandGetTimeHuman, "GetTimeHuman"},
                 {TypeId::CommandGetTimeBinary, "GetTimeBinary"},
+                {TypeId::CommandSetOpsMode, "SetOpsMode"},
+                {TypeId::CommandEnableChannel, "EnableChannel"},
                 {TypeId::CommandAdcsCommunicate, "AdcsCommunicate"},
                 {TypeId::CommandAdcsState, "AdcsState"},
                 {TypeId::CommandAdcsSetRunMode, "AdcsSetRunMode"},
                 {TypeId::CommandAdcsGetAdcsState, "AdcsGetAdcsState"},
+                {TypeId::CommandAdcsOrbitParameters, "AdcsOrbitParameters"},
                 {TypeId::CommandEpsCommunicate, "EpsCommunicate"},
                 {TypeId::CommandEpsSwitchName, "EpsSwitchName"},
                 {TypeId::CommandEpsSwitchNumber, "EpsSwitchNumber"},
@@ -189,6 +203,8 @@ namespace Cosmos {
                 {"SetTime", TypeId::CommandSetTime},
                 {"GetTimeHuman", TypeId::CommandGetTimeHuman},
                 {"GetTimeBinary", TypeId::CommandGetTimeBinary},
+                {"SetOpsMode", TypeId::CommandSetOpsMode},
+                {"EnableChannel", TypeId::CommandEnableChannel},
                 {"EpsCommunicate", TypeId::CommandEpsCommunicate},
                 {"EpsSwitchName", TypeId::CommandEpsSwitchName},
                 {"EpsSwitchNumber", TypeId::CommandEpsSwitchNumber},
@@ -203,20 +219,20 @@ namespace Cosmos {
                 {"AdcsState", TypeId::CommandAdcsState},
                 {"AdcsSetRunMode", TypeId::CommandAdcsSetRunMode},
                 {"AdcsGetAdcsState", TypeId::CommandAdcsGetAdcsState},
+                {"AdcsOrbitParameters", TypeId::CommandAdcsOrbitParameters},
                 {"ExecLoadCommand", TypeId::CommandExecLoadCommand},
                 {"ExecAddCommand", TypeId::CommandExecAddCommand},
-
                 {"RadioCommunicate", TypeId::CommandRadioCommunicate},
             };
 
-            struct __attribute__ ((packed)) CommunicateHeader
+            struct __attribute__((packed)) CommunicateHeader
             {
                 uint8_t unit;
                 uint8_t command;
                 uint16_t responsecount;
             };
 
-            struct __attribute__ ((packed))  CommunicateResponseHeader
+            struct __attribute__((packed)) CommunicateResponseHeader
             {
                 uint32_t deci;
                 uint8_t chunks;
@@ -230,25 +246,26 @@ namespace Cosmos {
             using EpsResponseHeader = CommunicateResponseHeader;
             using RadioResponseHeader = CommunicateResponseHeader;
 
-            struct __attribute__ ((packed))  ResponseHeader
+            struct __attribute__((packed)) ResponseHeader
             {
                 uint32_t deci;
+                uint32_t response_id;
+                uint8_t source_id;
                 uint8_t chunks;
                 uint8_t chunk_id;
-                uint32_t response_id;
             };
 
-            struct __attribute__ ((packed))  TestHeader
+            struct __attribute__((packed)) TestHeader
             {
                 uint32_t test_id = 0;
                 uint32_t size = 0;
                 uint32_t packet_id = 0;
             };
 
-            struct __attribute__ ((packed))  Header
+            struct __attribute__((packed)) Header
             {
                 uint16_t data_size = 0;
-                TypeId type = TypeId::CommandPing;
+                TypeId type = TypeId::Blank;
                 uint8_t radio = 0;
                 uint8_t orig = 254; // refer to NodeData::NODEIDORIG;
                 uint8_t dest = 255; // refer to NodeData::NODEIDDEST;
@@ -258,11 +275,11 @@ namespace Cosmos {
             CCSDS_Header ccsds_header;
             vector<uint8_t> packetized;
             vector<uint8_t> wrapped;
-			/// Data of interest
+            /// Data of interest
             vector<uint8_t> data;
             uint16_t crc;
 
-            struct __attribute__ ((packed)) FileChunkData
+            struct __attribute__((packed)) FileChunkData
             {
                 uint16_t size;
                 uint32_t txid;
@@ -270,19 +287,16 @@ namespace Cosmos {
 
             struct FileMeta
             {
-
             };
 
             vector<uint8_t> atsm = {0x1a, 0xcf, 0xfc, 0x1d};
             vector<uint8_t> atsmr = {0x58, 0xf3, 0x3f, 0xb8};
-//            uint32_t secret;
-
-        private:
+            vector<uint8_t> satsm = {0x35, 0x2e, 0xf8, 0x53};
             CRC16 calc_crc;
 
-//            Transfer ttransfer;
-//            int32_t close_transfer();
-
+        private:
+            //            Transfer ttransfer;
+            //            int32_t close_transfer();
         };
     }
 }

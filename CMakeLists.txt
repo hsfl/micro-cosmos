@@ -123,6 +123,5 @@ ENDIF(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
 # Standard inludes
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/device/general)
 add_subdirectory(${PROJECT_SOURCE_DIR}/math)
 add_subdirectory(${PROJECT_SOURCE_DIR}/support)
