@@ -15,6 +15,14 @@ namespace Cosmos {
             // RawPacketize();
         }
 
+        void PacketComm::Invert(vector<uint8_t> &data)
+        {
+            vector<uint8_t> result;
+            uint8from(data, result, ByteOrder::BIGENDIAN);
+            data = result;
+            return;
+        }
+
         void PacketComm::CalcCRC()
         {
             crc = calc_crc.calc(data);
@@ -61,8 +69,8 @@ namespace Cosmos {
                     style = PacketStyle::Minimal;
                     header.nodeorig = 254;
                     header.nodedest = 255;
-                    header.chanorig = 0;
-                    header.chandest = 0;
+                    header.chanin = 0;
+                    header.chanout = 0;
                     return data.size();
                 }
             case false:
@@ -150,10 +158,14 @@ namespace Cosmos {
             else if (atsmr[0] == packetized[0] && atsmr[1] == packetized[1] && atsmr[2] == packetized[2] && atsmr[3] == packetized[3])
             {
                 vector<uint8_t> input;
-                input.insert(wrapped.begin(), &packetized[4], &packetized[packetized.size()]);
+                input.insert(input.begin(), &packetized[4], &packetized[packetized.size()]);
                 uint8from(input, wrapped, ByteOrder::BIGENDIAN);
             }
-            return Unwrap(checkcrc);
+            else
+            {
+                return false;
+            }
+            return (Unwrap(checkcrc) >= 0);
         }
 
         bool PacketComm::HDLCUnPacketize(bool checkcrc)
@@ -166,11 +178,31 @@ namespace Cosmos {
 
         bool PacketComm::AX25UnPacketize(bool checkcrc)
         {
+            int32_t iretn = 0;
             Ax25Handle axhandle;
-            //            axhandle.unstuff(packetized);
-            axhandle.unload();
-            wrapped = axhandle.ax25_packet;
-            return Unwrap(checkcrc);
+            axhandle.set_ax25_packet(packetized);
+            iretn = axhandle.unload(checkcrc);
+            if (iretn >= 0)
+            {
+                wrapped = axhandle.ax25_packet;
+                return Unwrap(checkcrc);
+            }
+            else
+            {
+                wrapped.clear();
+                return false;
+            }
+//            if (packetized.size() > 18)
+//            {
+//                axhandle.ax25_packet.clear();
+//                axhandle.ax25_packet.insert(axhandle.ax25_packet.begin(), packetized.begin() + 16, packetized.end() - 2);
+//                packetized = axhandle.ax25_packet;
+//                uint8from(packetized, wrapped, ByteOrder::BIGENDIAN);
+//            }
+//            else
+//            {
+//                packetized.clear();
+//            }
         }
 
         //! \brief Wrap up header and payload
@@ -178,6 +210,16 @@ namespace Cosmos {
         //! into ::Cosmos::Support::PacketComm::wrapped
         //! \return Boolean success
         bool PacketComm::Wrap()
+        {
+            return Wrap(true);
+        }
+
+        //! \brief Wrap up header and payload
+        //! Merge ::Cosmos::Support::PacketComm::data and ::Cosmos::Support::PacketComm::header
+        //! into ::Cosmos::Support::PacketComm::wrapped
+        //! \param calc_checksum If false, skips crc calculation
+        //! \return Boolean success
+        bool PacketComm::Wrap(bool calc_checksum)
         {
             switch (style)
             {
@@ -194,18 +236,30 @@ namespace Cosmos {
                     wrapped.insert(wrapped.end(), data.begin(), data.end());
                 }
                 break;
-            case PacketStyle::V1:
-                {
-                    return false;
-                }
-                break;
+//            case PacketStyle::V1:
+//                {
+//                    header.data_size = data.size();
+//                    headerv1.data_size = header.data_size;
+//                    headerv1.type = static_cast<TypeIdV1>(header.type);
+//                    headerv1.nodeorig = header.nodeorig;
+//                    headerv1.nodedest = header.nodedest;
+//                    headerv1.chanin = header.chanin;
+//                    wrapped.resize(COSMOS_SIZEOF(HeaderV1));
+//                    memcpy(&wrapped[0], &headerv1, COSMOS_SIZEOF(HeaderV1));
+//                    wrapped.insert(wrapped.end(), data.begin(), data.end());
+//                    crc = calc_crc.calc(wrapped);
+//                    wrapped.resize(wrapped.size()+2);
+//                    wrapped[wrapped.size()-2] = crc & 0xff;
+//                    wrapped[wrapped.size()-1] = crc >> 8;
+//                }
+//                break;
             case PacketStyle::V2:
                 {
                     header.data_size = data.size();
                     wrapped.resize(COSMOS_SIZEOF(Header));
                     memcpy(&wrapped[0], &header, COSMOS_SIZEOF(Header));
                     wrapped.insert(wrapped.end(), data.begin(), data.end());
-                    crc = calc_crc.calc(wrapped);
+                    crc = calc_checksum ? calc_crc.calc(wrapped) : 0;
                     wrapped.resize(wrapped.size()+2);
                     wrapped[wrapped.size()-2] = crc & 0xff;
                     wrapped[wrapped.size()-1] = crc >> 8;
@@ -247,6 +301,18 @@ namespace Cosmos {
 
         bool PacketComm::ASMPacketize()
         {
+            // Default call has no padding at the end
+            return ASMPacketize(data.size() + sizeof(PacketComm::header) + 2 + atsm.size());
+        }
+
+        //! @param packet_wrapped_size Size to stuff a packet up to for fixed-sized requirements
+        bool PacketComm::ASMPacketize(uint16_t packet_wrapped_size)
+        {
+            // 2 is crc size
+            if (data.size() + sizeof(PacketComm::header) + 2 + atsm.size() > packet_wrapped_size)
+            {
+                return false;
+            }
             if (!Wrap())
             {
                 return false;
@@ -254,6 +320,14 @@ namespace Cosmos {
             packetized.clear();
             packetized.insert(packetized.begin(), atsm.begin(), atsm.end());
             packetized.insert(packetized.end(), wrapped.begin(), wrapped.end());
+            // Adjust packet size to specified padded size
+            // XBand seems to ignore packets if it's all just 0 or 1 (though it seems to like other numbers), so just fill with a sequence
+            const size_t wrapped_size = packetized.size();
+            packetized.resize(packet_wrapped_size);
+            for (size_t i=wrapped_size ; i<packet_wrapped_size; ++i)
+            {
+                packetized[i] = i;
+            }
             return true;
         }
 

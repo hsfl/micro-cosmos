@@ -5,6 +5,7 @@
 #include "math/crclib.h"
 #include "support/sliplib.h"
 #include "support/ax25class.h"
+// #include "support/timelib.h"
 
 namespace Cosmos {
     namespace Support {
@@ -88,19 +89,24 @@ namespace Cosmos {
 
                 DataExec = 0x500,
                 CommandExec = 0x580,
-                CommandExecClearQueue = 0x582,
-                CommandExecSetOpsMode = 0x583,
-                CommandExecEnableChannel = 0x584,
-                CommandExecLoadCommand = 170,
-                CommandExecAddCommand = 171,
+                CommandExecClearQueue = 0x581,
+                CommandExecSetOpsMode = 0x582,
+                CommandExecEnableChannel = 0x583,
+                CommandExecLoadCommand = 0x584,
+                CommandExecAddCommand = 0x585,
 
                 DataRadio = 0x700,
                 DataRadioTest = 0x701,
-                DataRadioResponse = 0x701,
+                DataRadioResponse = 0x702,
                 CommandRadio = 0x780,
                 CommandRadioTest = 0x781,
                 CommandRadioCommunicate = 0x782,
                 CommandRadioAstrodevCommunicate = 0x783,
+
+                DataCamera = 0x800,
+                CommandCamera = 0x880,
+                CommandCameraOn = 0x881,
+                CommandCameraCapture = 0x882,
             };
 
             std::map<TypeId, string> TypeString = {
@@ -163,6 +169,68 @@ namespace Cosmos {
                 {TypeId::CommandRadioAstrodevCommunicate, "RadioAstrodevCommunicate"},
             };
 
+            std::map<string, TypeId> StringType = {
+                {"Beacon", TypeId::DataObcBeacon},
+                {"Nop", TypeId::DataObcNop},
+                {"Pong", TypeId::DataObcPong},
+                {"EpsResponse", TypeId::DataEpsResponse},
+                {"RadioResponse", TypeId::DataRadioResponse},
+                {"AdcsResponse", TypeId::DataAdcsResponse},
+                {"Response", TypeId::DataObcResponse},
+                {"Test", TypeId::DataRadioTest},
+                {"Time", TypeId::DataObcTime},
+
+                {"FileCommand", TypeId::DataFileCommand},
+                {"FileMessage", TypeId::DataFileMessage},
+                {"FileQueue", TypeId::DataFileQueue},
+                {"FileCancel", TypeId::DataFileCancel},
+                {"FileComplete", TypeId::DataFileComplete},
+                {"FileReqMeta", TypeId::DataFileReqMeta},
+                {"FileReqData", TypeId::DataFileReqData},
+                {"FileMetaData", TypeId::DataFileMetaData},
+                {"FileChunkData", TypeId::DataFileChunkData},
+                {"FileReqComplete", TypeId::DataFileReqComplete},
+
+                {"Reset", TypeId::CommandObcReset},
+                {"Reboot", TypeId::CommandObcReboot},
+                {"SendBeacon", TypeId::CommandObcSendBeacon},
+                {"ClearQueue", TypeId::CommandExecClearQueue},
+                {"ExternalCommand", TypeId::CommandObcExternalCommand},
+                {"ExternalTask", TypeId::CommandObcExternalTask},
+                {"TestRadio", TypeId::CommandRadioTest},
+                {"ListDirectory", TypeId::CommandFileListDirectory},
+                {"TransferFile", TypeId::CommandFileTransferFile},
+                {"TransferNode", TypeId::CommandFileTransferNode},
+                {"TransferRadio", TypeId::CommandFileTransferRadio},
+                {"TransferList", TypeId::CommandFileTransferList},
+                {"InternalRequest", TypeId::CommandObcInternalRequest},
+                {"Ping", TypeId::CommandObcPing},
+                {"SetTime", TypeId::CommandObcSetTime},
+                {"GetTimeHuman", TypeId::CommandObcGetTimeHuman},
+                {"GetTimeBinary", TypeId::CommandObcGetTimeBinary},
+                {"SetOpsMode", TypeId::CommandExecSetOpsMode},
+                {"EnableChannel", TypeId::CommandExecEnableChannel},
+                {"EpsCommunicate", TypeId::CommandEpsCommunicate},
+                {"EpsSwitchName", TypeId::CommandEpsSwitchName},
+                {"EpsSwitchNumber", TypeId::CommandEpsSwitchNumber},
+                {"EpsReset", TypeId::CommandEpsReset},
+                {"EpsState", TypeId::CommandEpsState},
+                {"EpsWatchdog", TypeId::CommandEpsWatchdog},
+                {"EpsSetTime", TypeId::CommandEpsSetTime},
+                {"EpsMinimumPower", TypeId::CommandEpsMinimumPower},
+                {"EpsSwitchNames", TypeId::CommandEpsSwitchNames},
+                {"EpsSwitchStatus", TypeId::CommandEpsSwitchStatus},
+                {"AdcsCommunicate", TypeId::CommandAdcsCommunicate},
+                {"AdcsState", TypeId::CommandAdcsState},
+                {"AdcsSetRunMode", TypeId::CommandAdcsSetRunMode},
+                {"AdcsGetAdcsState", TypeId::CommandAdcsGetAdcsState},
+                {"AdcsOrbitParameters", TypeId::CommandAdcsOrbitParameters},
+                {"ExecLoadCommand", TypeId::CommandExecLoadCommand},
+                {"ExecAddCommand", TypeId::CommandExecAddCommand},
+                {"RadioCommunicate", TypeId::CommandRadioCommunicate},
+                {"RadioAstrodevCommunicate", TypeId::CommandRadioAstrodevCommunicate},
+            };
+
             struct __attribute__ ((packed)) CommunicateHeader
             {
                 uint8_t unit;
@@ -206,8 +274,8 @@ namespace Cosmos {
                 uint16_t data_size;
                 uint8_t nodeorig = 254; // refer to NodeData::NODEIDORIG;
                 uint8_t nodedest = 255; // refer to NodeData::NODEIDDEST;
-                uint8_t chanorig = 0;
-                uint8_t chandest = 0;
+                uint8_t chanin = 0;
+                uint8_t chanout = 0;
             } header;
 
             CCSDS_Header ccsds_header;
@@ -220,7 +288,7 @@ namespace Cosmos {
                 {
                 None,
                 Minimal,
-                V1,
+//                V1,
                 V2
                 };
 
@@ -232,15 +300,12 @@ namespace Cosmos {
                 uint32_t txid;
             };
 
-            struct FileMeta
-            {
-
-            };
-
             vector<uint8_t> atsm = {0x1a, 0xcf, 0xfc, 0x1d};
             vector<uint8_t> atsmr = {0x58, 0xf3, 0x3f, 0xb8};
             vector<uint8_t> satsm = {0x35, 0x2e, 0xf8, 0x53};
             CRC16 calc_crc;
+
+            void Invert(vector<uint8_t>& data);
             void CalcCRC();
             bool CheckCRC();
             int32_t Unwrap(bool checkcrc=true);
@@ -252,11 +317,16 @@ namespace Cosmos {
             bool HDLCUnPacketize(bool checkcrc=true);
             bool AX25UnPacketize(bool checkcrc=true);
             bool Wrap();
+            bool Wrap(bool calc_checksum);
             bool RawPacketize();
             bool ASMPacketize();
+            //! Pads packetized packets to specified size
+            bool ASMPacketize(uint16_t packet_wrapped_size);
             bool AX25Packetize(string dest_call="", string sour_call="", uint8_t flagcount=2, uint8_t dest_stat=0x60, uint8_t sour_stat=0x61, uint8_t cont=0x03, uint8_t prot=0xf0);
             bool HDLCPacketize(uint8_t flagcount=10);
             bool SLIPPacketize();
+
+        private:
 
         };
     }

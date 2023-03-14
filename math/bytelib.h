@@ -35,10 +35,15 @@
 
 ByteOrder local_byte_order();
 
-uint8_t uint8from(uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
-uint8_t uint8to(uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
-void uint8from(vector<uint8_t> src, vector<uint8_t> &dst, ByteOrder order=ByteOrder::LITTLEENDIAN);
-void uint8to(vector<uint8_t> src, vector<uint8_t> dst, ByteOrder order=ByteOrder::LITTLEENDIAN);
+#if ((SIZE_WIDTH) == (UINT64_WIDTH))
+uint64_t uintswap(uint8_t bits, uint64_t value, ByteOrder order=ByteOrder::LITTLEENDIAN);
+#else
+size_t uintswap(uint8_t bits, size_t value, ByteOrder order=ByteOrder::LITTLEENDIAN);
+#endif
+uint8_t uint8from(const uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
+uint8_t uint8to(const uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
+void uint8from(const vector<uint8_t> &src, vector<uint8_t> &dst, ByteOrder order=ByteOrder::LITTLEENDIAN);
+void uint8to(const vector<uint8_t> &src, vector<uint8_t> dst, ByteOrder order=ByteOrder::LITTLEENDIAN);
 uint16_t uint16from(uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
 int16_t int16from(uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
 uint32_t uint32from(const uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
@@ -51,6 +56,7 @@ void uint16to(uint16_t value, uint8_t *pointer, ByteOrder order=ByteOrder::LITTL
 void int16to(int16_t value, uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
 void floatto(float value, uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
 void doubleto(double value, uint8_t *pointer, ByteOrder order=ByteOrder::LITTLEENDIAN);
+vector<uint8_t> vector8invert(uint8_t* data, uint32_t count);
 
 
 #endif
