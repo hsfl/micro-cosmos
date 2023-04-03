@@ -7,24 +7,28 @@
 #include "support/ax25class.h"
 // #include "support/timelib.h"
 
-namespace Cosmos {
-    namespace Support {
+namespace Cosmos
+{
+    namespace Support
+    {
         class PacketComm
         {
         public:
-            struct __attribute__ ((packed)) CCSDS_Header {
-                uint8_t tf_version:2;
-                uint16_t spacecraft_id:10;
-                uint8_t virtual_channel_id:3;
-                uint8_t ocf_flag:1;
+            struct __attribute__((packed)) CCSDS_Header
+            {
+                uint8_t tf_version : 2;
+                uint16_t spacecraft_id : 10;
+                uint8_t virtual_channel_id : 3;
+                uint8_t ocf_flag : 1;
                 uint8_t master_frame_cnt;
                 uint8_t virtual_frame_cnt; // Start frame, will increment
                 uint16_t tf_data_field_status;
             };
 
-            PacketComm(uint16_t size=4);
+            PacketComm(uint16_t size = 4);
 
-            enum class TypeId : uint16_t {
+            enum class TypeId : uint16_t
+            {
                 Blank = 0,
 
                 DataObc = 0x100,
@@ -167,6 +171,11 @@ namespace Cosmos {
                 {TypeId::CommandExecAddCommand, "ExecAddCommand"},
                 {TypeId::CommandRadioCommunicate, "RadioCommunicate"},
                 {TypeId::CommandRadioAstrodevCommunicate, "RadioAstrodevCommunicate"},
+
+                {TypeId::DataCamera, "DataCamera"},
+                {TypeId::CommandCamera, "CommandCamera"},
+                {TypeId::CommandCameraOn, "CameraOn"},
+                {TypeId::CommandCameraCapture, "CameraCapture"},
             };
 
             std::map<string, TypeId> StringType = {
@@ -229,16 +238,21 @@ namespace Cosmos {
                 {"ExecAddCommand", TypeId::CommandExecAddCommand},
                 {"RadioCommunicate", TypeId::CommandRadioCommunicate},
                 {"RadioAstrodevCommunicate", TypeId::CommandRadioAstrodevCommunicate},
+
+                {"DataCamera", TypeId::DataCamera},
+                {"CommandCamera", TypeId::CommandCamera},
+                {"CameraOn", TypeId::CommandCameraOn},
+                {"CameraCapture", TypeId::CommandCameraCapture},
             };
 
-            struct __attribute__ ((packed)) CommunicateHeader
+            struct __attribute__((packed)) CommunicateHeader
             {
                 uint8_t unit;
                 uint8_t command;
                 uint16_t responsecount;
             };
 
-            struct __attribute__ ((packed))  CommunicateResponseHeader
+            struct __attribute__((packed)) CommunicateResponseHeader
             {
                 uint32_t deci;
                 uint8_t chunks;
@@ -252,7 +266,7 @@ namespace Cosmos {
             using EpsResponseHeader = CommunicateResponseHeader;
             using RadioResponseHeader = CommunicateResponseHeader;
 
-            struct __attribute__ ((packed))  ResponseHeader
+            struct __attribute__((packed)) ResponseHeader
             {
                 uint32_t deci;
                 uint32_t response_id;
@@ -261,14 +275,14 @@ namespace Cosmos {
                 uint8_t chunk_id;
             };
 
-            struct __attribute__ ((packed))  TestHeader
+            struct __attribute__((packed)) TestHeader
             {
                 uint32_t test_id = 0;
                 uint32_t size = 0;
                 uint32_t packet_id = 0;
             };
 
-            struct __attribute__ ((packed))  Header
+            struct __attribute__((packed)) Header
             {
                 TypeId type = TypeId::Blank;
                 uint16_t data_size;
@@ -281,20 +295,20 @@ namespace Cosmos {
             CCSDS_Header ccsds_header;
             vector<uint8_t> packetized;
             vector<uint8_t> wrapped;
-			/// Data of interest
+            /// Data of interest
             vector<uint8_t> data;
             uint16_t crc;
             enum class PacketStyle : uint8_t
-                {
+            {
                 None,
                 Minimal,
-//                V1,
+                //                V1,
                 V2
-                };
+            };
 
             PacketStyle style = PacketStyle::V2;
 
-            struct __attribute__ ((packed)) FileChunkData
+            struct __attribute__((packed)) FileChunkData
             {
                 uint16_t size;
                 uint32_t txid;
@@ -305,29 +319,28 @@ namespace Cosmos {
             vector<uint8_t> satsm = {0x35, 0x2e, 0xf8, 0x53};
             CRC16 calc_crc;
 
-            void Invert(vector<uint8_t>& data);
+            void Invert(vector<uint8_t> &data);
             void CalcCRC();
             bool CheckCRC();
-            int32_t Unwrap(bool checkcrc=true);
+            int32_t Unwrap(bool checkcrc = true);
             int32_t Unwrap(bool checkcrc, bool minimal_header);
-            int32_t RawUnPacketize(bool invert=false, bool checkcrc=true);
+            int32_t RawUnPacketize(bool invert = false, bool checkcrc = true);
             int32_t RawUnPacketize(bool invert, bool checkcrc, bool minimal_header);
-            bool ASMUnPacketize(bool checkcrc=true);
-            bool SLIPUnPacketize(bool checkcrc=true);
-            bool HDLCUnPacketize(bool checkcrc=true);
-            bool AX25UnPacketize(bool checkcrc=true);
+            bool ASMUnPacketize(bool checkcrc = true);
+            bool SLIPUnPacketize(bool checkcrc = true);
+            bool HDLCUnPacketize(bool checkcrc = true);
+            bool AX25UnPacketize(bool checkcrc = true);
             bool Wrap();
             bool Wrap(bool calc_checksum);
             bool RawPacketize();
             bool ASMPacketize();
             //! Pads packetized packets to specified size
             bool ASMPacketize(uint16_t packet_wrapped_size);
-            bool AX25Packetize(string dest_call="", string sour_call="", uint8_t flagcount=2, uint8_t dest_stat=0x60, uint8_t sour_stat=0x61, uint8_t cont=0x03, uint8_t prot=0xf0);
-            bool HDLCPacketize(uint8_t flagcount=10);
+            bool AX25Packetize(string dest_call = "", string sour_call = "", uint8_t flagcount = 2, uint8_t dest_stat = 0x60, uint8_t sour_stat = 0x61, uint8_t cont = 0x03, uint8_t prot = 0xf0);
+            bool HDLCPacketize(uint8_t flagcount = 10);
             bool SLIPPacketize();
 
         private:
-
         };
     }
 }
